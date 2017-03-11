@@ -172,7 +172,7 @@ enum MovementFlags
     MOVEFLAG_HOVER              = 0x40000000,
     MOVEFLAG_INTERNAL           = 0x80000000,
 
-    // Nostalrius : ne peut etre present avec MOVEFLAG_ROOT (freez client sinon)
+    // Nostalrius : Can not be present with MOVEFLAG_ROOT (otherwise client freeze)
     MOVEFLAG_MASK_MOVING        =
         MOVEFLAG_FORWARD | MOVEFLAG_BACKWARD | MOVEFLAG_STRAFE_LEFT | MOVEFLAG_STRAFE_RIGHT |
         MOVEFLAG_PITCH_UP | MOVEFLAG_PITCH_DOWN | MOVEFLAG_JUMPING | MOVEFLAG_FALLINGFAR |
