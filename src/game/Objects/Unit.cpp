@@ -10418,6 +10418,17 @@ float Unit::GetCombatReach(Unit const* pVictim, bool forMeleeRange /*=true*/, fl
 			reach = ATTACK_DISTANCE;
 	}
 
+	//Melee leeway mechanic.
+	//When both player and target has > 70% of normal runspeed, and are moving,
+	//the player gains an additional 2.5yd of melee range.
+	if (this->IsPlayer()) {
+		if (this->GetSpeedRate(UnitMoveType::MOVE_RUN) > 0.7f
+			&& pVictim->GetSpeedRate(UnitMoveType::MOVE_RUN) > 0.7f
+			&& this->IsMoving() && pVictim->IsMoving()) {
+			reach += 2.5f;
+		}
+	}
+
 	return reach;
 }
 
