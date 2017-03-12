@@ -10453,10 +10453,10 @@ float Unit::GetCombatReach(Unit const* pVictim, bool forMeleeRange /*=true*/, fl
 	MOVEFLAG_FORWARD | MOVEFLAG_BACKWARD |
 	MOVEFLAG_STRAFE_LEFT | MOVEFLAG_STRAFE_RIGHT;
 			
-	if (!u->HasUnitMovementFlag(moveflag_mask_xz))
-	{
-		sLog.outBasic("NOT MOVING");
-		return 0.0f;
+		if (!u->HasUnitMovementFlag(moveflag_mask_xz))
+		{
+			sLog.outBasic("NOT MOVING");
+			return 0.0f;
 		}
 		if (u->IsSwimming())
 		{
