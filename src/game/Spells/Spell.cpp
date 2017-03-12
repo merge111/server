@@ -6120,14 +6120,7 @@ SpellCastResult Spell::CheckRange(bool strict)
                 // Nostalrius : requiert cible devant pour ces sorts !
                 if (!m_caster->HasInArc(M_PI_F, target))
                     return SPELL_FAILED_UNIT_NOT_INFRONT;
-                float range_mod = strict ? 1.25f : 6.25f;
-                // Mouvements -> desync
-                if (m_caster->IsPlayer())
-                    if (m_caster->IsMoving())
-                        range_mod += 1.5f;
-                if (target->IsPlayer())
-                    if (target->IsMoving())
-                        range_mod += 1.5f;
+                float range_mod = 1.0f;
 
                 float base = ATTACK_DISTANCE;
                 if (Player* modOwner = m_caster->GetSpellModOwner())

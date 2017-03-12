@@ -788,6 +788,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         bool IsFlying() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_FLYING);}
         bool IsWalking() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_WALK_MODE);}
         bool IsMoving() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_MASK_MOVING);}
+        bool IsSwimming() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_SWIMMING); }
 
         MovementInfo m_movementInfo;
         Transport * m_transport;

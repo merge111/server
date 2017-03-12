@@ -10418,19 +10418,92 @@ float Unit::GetCombatReach(Unit const* pVictim, bool forMeleeRange /*=true*/, fl
 			reach = ATTACK_DISTANCE;
 	}
 
+	
 	//Melee leeway mechanic.
 	//When both player and target has > 70% of normal runspeed, and are moving,
 	//the player gains an additional 2.5yd of melee range.
 	if (this->IsPlayer()) 
 	{
-		if (this->GetSpeedRate(UnitMoveType::MOVE_RUN) > 0.7f
-			&& pVictim->GetSpeedRate(UnitMoveType::MOVE_RUN) > 0.7f
-			&& this->IsMoving() && pVictim->IsMoving()) 
+	/*
+	sLog.outBasic("PLAYER RATE WALK: %f", this->GetSpeedRate(MOVE_WALK));
+	sLog.outBasic("TARGET RATE WALK: %f", pVictim->GetSpeed(MOVE_WALK));
+	sLog.outBasic("PLAYER SPEED WALK: %f", this->GetSpeed(MOVE_WALK));
+	sLog.outBasic("TARGET SPEED WALK: %f", pVictim->GetSpeed(MOVE_WALK));
+
+	sLog.outBasic("PLAYER RATE RUN: %f", this->GetSpeedRate(MOVE_RUN));
+	sLog.outBasic("TARGET RATE RUN: %f", pVictim->GetSpeed(MOVE_RUN));
+	sLog.outBasic("PLAYER SPEED RUN: %f", this->GetSpeed(MOVE_RUN));
+	sLog.outBasic("TARGET SPEED RUN: %f", pVictim->GetSpeed(MOVE_RUN));
+
+	sLog.outBasic("PLAYER RATE SWIM: %f", this->GetSpeedRate(MOVE_SWIM));
+	sLog.outBasic("TARGET RATE SWIM: %f", pVictim->GetSpeed(MOVE_SWIM));
+	sLog.outBasic("PLAYER SPEED SWIM: %f", this->GetSpeed(MOVE_SWIM));
+	sLog.outBasic("TARGET SPEED SWIM: %f", pVictim->GetSpeed(MOVE_SWIM));
+		
+	sLog.outBasic("PLAYER Swim: %i", this->HasUnitMovementFlag(MOVEFLAG_SWIMMING));
+	sLog.outBasic("TARGET Swim: %i", pVictim->HasUnitMovementFlag(MOVEFLAG_SWIMMING));
+	*/
+		
+	//todo: create member function 
+	auto flagbasedSpeed = [](const Unit* u)->float 
+	{
+	//MovementFlags mask that only contains flags for x/z translations
+	//this is to avoid that a jumping character that stands still triggers melee-leeway
+	static const uint32 moveflag_mask_xz =
+	MOVEFLAG_FORWARD | MOVEFLAG_BACKWARD |
+	MOVEFLAG_STRAFE_LEFT | MOVEFLAG_STRAFE_RIGHT;
+			
+	if (!u->HasUnitMovementFlag(moveflag_mask_xz))
+	{
+		sLog.outBasic("NOT MOVING");
+		return 0.0f;
+		}
+		if (u->IsSwimming())
+		{
+			if (u->HasUnitMovementFlag(MOVEFLAG_BACKWARD)) 
+			{
+				sLog.outBasic("SWIM BACK: %f", u->GetSpeed(MOVE_SWIM_BACK));
+				return u->GetSpeed(MOVE_SWIM_BACK);
+			}
+			else 
+			{
+				sLog.outBasic("SWIM FORW: %f", u->GetSpeed(MOVE_SWIM));
+				return u->GetSpeed(MOVE_SWIM);
+			}
+		}
+		else if (u->IsWalking())
+		{
+			sLog.outBasic("WALK: %f", u->GetSpeed(MOVE_WALK));
+			//Seems to always be same speed forward and backward when walking
+			return u->GetSpeed(MOVE_WALK);
+		}
+		else 
+		{
+			//presumably only running left when IsMoving is true
+			if (u->HasUnitMovementFlag(MOVEFLAG_BACKWARD)) 
+			{
+				sLog.outBasic("RUN BACK: %f", u->GetSpeed(MOVE_RUN_BACK));
+				return u->GetSpeed(MOVE_RUN_BACK);
+			}
+			else 
+			{
+				sLog.outBasic("RUN FORW: %f", u->GetSpeed(MOVE_RUN));
+				return u->GetSpeed(MOVE_RUN);
+			}
+		}
+		};
+
+		static const float leeway_min_speed = 7.0f*0.7f;
+		float playerSpeed = flagbasedSpeed(this);
+		float targetSpeed = flagbasedSpeed(pVictim);
+		sLog.outBasic("PS: %f - TS: %f", playerSpeed, targetSpeed);
+		if (flagbasedSpeed(this) > leeway_min_speed && flagbasedSpeed(pVictim) > leeway_min_speed) 
 		{
 			reach += 2.5f;
 		}
-	}
 
+		sLog.outBasic("reach: %f", reach);
+	}
 	return reach;
 }
 
