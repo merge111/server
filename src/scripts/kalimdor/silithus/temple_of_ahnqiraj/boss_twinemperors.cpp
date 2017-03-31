@@ -27,55 +27,38 @@ EndScriptData */
 #include "scriptPCH.h"
 #include "temple_of_ahnqiraj.h"
 
+#define SPELL_HEAL_BROTHER          7393
+#define SPELL_TWIN_TELEPORT         800                     // CTRA watches for this spell to start its teleport timer
+#define SPELL_TWIN_TELEPORT_VISUAL  26638                   // visual
 
-static const uint32 PULL_RANGE      = 50;
-static const uint32 ABUSE_BUG_RANGE = 20;
-static const uint32 TELEPORTTIME    = 30000;
-static const uint32 VEKLOR_DIST     = 20;// VL will not come to melee when attacking
+#define SPELL_EXPLODEBUG            804
+#define SPELL_MUTATE_BUG            802
 
+#define SOUND_VN_DEATH              8660                    //8660 - Death - Feel
+#define SOUND_VN_AGGRO              8661                    //8661 - Aggro - Let none
+#define SOUND_VN_KILL               8662                    //8661 - Kill - your fate
 
-enum eSpells {
-    SPELL_BERSERK               = 26662,
-    
-    SPELL_UPPERCUT              = 26007,
-    SPELL_UNBALANCING_STRIKE    = 26613,
-    
-    SPELL_HEAL_BROTHER          = 7393,
-    SPELL_TWIN_TELEPORT         = 800,   // CTRA watches for this spell to start its teleport timer
-    SPELL_TWIN_TELEPORT_VISUAL  = 26638, // visual
-    
-    SPELL_EXPLODEBUG            = 804,
-    SPELL_MUTATE_BUG            = 802,
-    
-    SPELL_SHADOWBOLT            = 26006,
-    SPELL_BLIZZARD              = 26607,
-    SPELL_ARCANEBURST           = 568,
-};
+#define SOUND_VL_AGGRO              8657                    //8657 - Aggro - To Late
+#define SOUND_VL_KILL               8658                    //8658 - Kill - You will not
+#define SOUND_VL_DEATH              8659                    //8659 - Death
 
-enum eScriptTexts {
-    SAY_VEKLOR_AGGRO_1      = -1531019, // its too late to turn away
-    SAY_VEKLOR_AGGRO_2      = -1531020, // prepare to embrace oblivion
-    SAY_VEKLOR_AGGRO_3      = -1531021, // like a fly in a web
-    SAY_VEKLOR_AGGRO_4      = -1531022, // your brash arrogance
-    SAY_VEKLOR_SLAY         = -1531023, // you will not escape death
-    SAY_VEKLOR_SPECIAL      = -1531025, // to decorate our halls
-                                           
-    SAY_VEKNILASH_AGGRO_1   = -1531026, // ah, lambs to the slaughter
-    SAY_VEKNILASH_AGGRO_2   = -1531027, // let none survive
-    SAY_VEKNILASH_AGGRO_3   = -1531028, // join me brother, there is blood to be shed
-    SAY_VEKNILASH_AGGRO_4   = -1531029, // look brother, fresh bloood
-    SAY_VEKNILASH_SLAY      = -1531030, // your fate is sealed
-    SAY_VEKNILASH_SPECIAL   = -1531032, // Shall be your undoing (wipe?)
-                                        
-    //death is handled by instance_temple_of_ahnqiraj.cpp
-    //NOTE: according to wowwiki, the *_SLAY emotes are used during enrage,
-    //      while "Oblivion will engulf you", "Like a fly in a web" and "your brash arrogance" 
-    //      is used on killing player. Not been able to confirm this.
-};
+#define PULL_RANGE                  50
+#define ABUSE_BUG_RANGE             20
+#define SPELL_BERSERK               26662
+#define TELEPORTTIME                30000
+
+#define SPELL_UPPERCUT              26007
+#define SPELL_UNBALANCING_STRIKE    26613
+
+#define VEKLOR_DIST                 20                      // VL will not come to melee when attacking
+
+#define SPELL_SHADOWBOLT            26006
+#define SPELL_BLIZZARD              26607
+#define SPELL_ARCANEBURST           568
 
 struct boss_twinemperorsAI : public ScriptedAI
 {
-    instance_temple_of_ahnqiraj* m_pInstance;
+    ScriptedInstance* m_pInstance;
     uint32 Heal_Timer;
     uint32 Teleport_Timer;
     bool AfterTeleport;
@@ -84,29 +67,14 @@ struct boss_twinemperorsAI : public ScriptedAI
     uint32 Abuse_Bug_Timer, BugsTimer;
     bool tspellcasted;
     uint32 EnrageTimer;
-    
-    SIDialogueEntry pullScriptedText;
 
     virtual bool IAmVeklor() = 0;
     virtual void Reset() = 0;
     virtual void CastSpellOnBug(Creature *target) = 0;
 
-    boss_twinemperorsAI(Creature* pCreature) : 
-        ScriptedAI(pCreature)
+    boss_twinemperorsAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
-        instance_temple_of_ahnqiraj* tmpPTr = dynamic_cast<instance_temple_of_ahnqiraj*>(pCreature->GetInstanceData());
-        if (!tmpPTr) {
-            sLog.outError("boss_twinemperorsAI attempted to cast instance to type instance_temple_of_ahnqiraj, but failed.");
-            m_pInstance = nullptr;
-        }
-        else {
-            m_pInstance = (instance_temple_of_ahnqiraj*)pCreature->GetInstanceData();
-
-            //If the encounter has not been started yet this ID they should be kneeling to the eye.
-            if (m_pInstance->GetData(TYPE_TWINS) == NOT_STARTED) {
-                m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-            }
-        }
+        m_pInstance = (ScriptedInstance*)pCreature->GetInstanceData();
         TwinReset();
     }
 
@@ -121,7 +89,7 @@ struct boss_twinemperorsAI : public ScriptedAI
         BugsTimer = 2000;
         m_creature->clearUnitState(UNIT_STAT_STUNNED);
         DontYellWhenDead = false;
-        EnrageTimer = 15 * 60000; // todo: uncertain which dialogue should be used on enrage, wowwiki does not add up with db scripts
+        EnrageTimer = 15 * 60000;
     }
 
     Creature* GetOtherBoss()
@@ -155,11 +123,21 @@ struct boss_twinemperorsAI : public ScriptedAI
             pOtherBoss->SetHealth(0);
             pOtherBoss->SetDeathState(JUST_DIED);
             pOtherBoss->SetUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+
+            if (boss_twinemperorsAI* pOtherAI = dynamic_cast<boss_twinemperorsAI*>(pOtherBoss->AI()))
+                pOtherAI->DontYellWhenDead = true;
         }
 
-        // Death text script is handled by instance upon receiving DONE data
+        if (!DontYellWhenDead)                              // I hope AI is not threaded
+            DoPlaySoundToSet(m_creature, IAmVeklor() ? SOUND_VL_DEATH : SOUND_VN_DEATH);
+
         if (m_pInstance)
             m_pInstance->SetData(TYPE_TWINS, DONE);
+    }
+
+    void KilledUnit(Unit* victim)
+    {
+        DoPlaySoundToSet(m_creature, IAmVeklor() ? SOUND_VL_KILL : SOUND_VN_KILL);
     }
 
     void Aggro(Unit* pWho)
@@ -171,6 +149,7 @@ struct boss_twinemperorsAI : public ScriptedAI
             // is near I dont know how to do that
             if (!pOtherBoss->isInCombat())
             {
+                DoPlaySoundToSet(m_creature, IAmVeklor() ? SOUND_VL_AGGRO : SOUND_VN_AGGRO);
                 pOtherBoss->AI()->AttackStart(pWho);
             }
         }
@@ -182,7 +161,7 @@ struct boss_twinemperorsAI : public ScriptedAI
     void JustReachedHome()
     {
         if (m_pInstance)
-            m_pInstance->SetData(TYPE_TWINS, FAIL);
+            m_pInstance->SetData(TYPE_TWINS, DONE);
     }
 
     void SpellHit(Unit *caster, const SpellEntry *entry)
@@ -290,9 +269,8 @@ struct boss_twinemperorsAI : public ScriptedAI
 
         Teleport_Timer = TELEPORTTIME;
 
-        // mechanics handled by veknilash so they teleport exactly at the same time and to correct coordinates
         if (IAmVeklor())
-            return;  
+            return;                                         // mechanics handled by veknilash so they teleport exactly at the same time and to correct coordinates
 
         Creature *pOtherBoss = GetOtherBoss();
         if (pOtherBoss)
@@ -303,11 +281,11 @@ struct boss_twinemperorsAI : public ScriptedAI
             float other_z = pOtherBoss->GetPositionZ();
             float other_o = pOtherBoss->GetOrientation();
 
- 	          pOtherBoss->NearTeleportTo(m_creature->GetPositionX(),
- 				           m_creature->GetPositionY(),
- 				           m_creature->GetPositionZ(),
-                m_creature->GetOrientation());
- 	          m_creature->NearTeleportTo(other_x, other_y, other_z, other_o);
+ 	    pOtherBoss->NearTeleportTo(m_creature->GetPositionX(),
+ 				       m_creature->GetPositionY(),
+ 				       m_creature->GetPositionZ(),
+                                        m_creature->GetOrientation());
+ 	    m_creature->NearTeleportTo(other_x, other_y, other_z, other_o);
 
 
             SetAfterTeleport();
@@ -322,6 +300,8 @@ struct boss_twinemperorsAI : public ScriptedAI
         m_creature->InterruptNonMeleeSpells(false);
         DoStopAttack();
         DoResetThreat();
+        Unit *nearu = PickNearestPlayer();
+        AttackStart(nearu);
         DoCastSpellIfCan(m_creature, SPELL_TWIN_TELEPORT_VISUAL);
         m_creature->addUnitState(UNIT_STAT_STUNNED);
         AfterTeleport = true;
@@ -332,24 +312,30 @@ struct boss_twinemperorsAI : public ScriptedAI
     bool TryActivateAfterTTelep(uint32 diff)
     {
         if (AfterTeleport)
-        {
+        {/*
             if (!tspellcasted)
             {
-                m_creature->clearUnitState(UNIT_STAT_STUNNED);
-                DoCastSpellIfCan(m_creature, SPELL_TWIN_TELEPORT);
-                m_creature->addUnitState(UNIT_STAT_STUNNED);
-            }
-
-            tspellcasted = true;
-
-            if (AfterTeleportTimer < diff)
-            {
-                AfterTeleport = false;
                 m_creature->clearUnitState(UNIT_STAT_STUNNED);
                 Unit *nearu = PickNearestPlayer();
                 //DoYell(nearu->GetName(), LANG_UNIVERSAL, 0);
                 AttackStart(nearu);
                 m_creature->getThreatManager().addThreat(nearu, 100000);
+                DoCastSpellIfCan(m_creature, SPELL_TWIN_TELEPORT);
+                m_creature->addUnitState(UNIT_STAT_STUNNED);
+            }
+
+            tspellcasted = true;
+         */
+            if (AfterTeleportTimer < diff)
+            {
+                AfterTeleport = false;
+                m_creature->clearUnitState(UNIT_STAT_STUNNED);
+                DoResetThreat();
+                Unit *nearu = PickNearestPlayer();
+                //DoYell(nearu->GetName(), LANG_UNIVERSAL, 0);
+                AttackStart(nearu);
+                m_creature->getThreatManager().addThreat(nearu, 100000);
+                DoCastSpellIfCan(m_creature, SPELL_TWIN_TELEPORT);
                 return true;
             }
             else
@@ -422,6 +408,9 @@ struct boss_twinemperorsAI : public ScriptedAI
                 if (c)
                 {
                     CastSpellOnBug(c);
+                    // Spell buff mob max hp's, set curr hp to max
+                    c->SetHealth(c->GetMaxHealth());
+                    c->SetInCombatWithZone();
                     Abuse_Bug_Timer = urand(10000, 17000);
                 }
                 else
@@ -450,18 +439,6 @@ struct boss_twinemperorsAI : public ScriptedAI
             else EnrageTimer = 0;
         }
         else EnrageTimer -= diff;
-    }
-
-    void SharedUpdate(uint32 diff) 
-    {
-        // Update the pull dialogue
-        if (pullScriptedText.uiTimer < diff) {
-            DoScriptText(pullScriptedText.iTextEntry, m_creature);
-            pullScriptedText.uiTimer = std::numeric_limits<uint32>::max();
-        }
-        else {
-            pullScriptedText.uiTimer -= diff;
-        }
     }
 };
 
@@ -494,8 +471,6 @@ struct boss_veknilashAI : public boss_twinemperorsAI
 
         //Added. Can be removed if its included in DB.
         m_creature->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
-
-        pullScriptedText = SIDialogueEntry{ irand(SAY_VEKNILASH_AGGRO_4, SAY_VEKNILASH_AGGRO_1), NPC_VEKNILASH, 0};
     }
 
     void CastSpellOnBug(Creature *target)
@@ -509,8 +484,6 @@ struct boss_veknilashAI : public boss_twinemperorsAI
         //Return since we have no target
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
-        
-        SharedUpdate(diff);
 
         if (!TryActivateAfterTTelep(diff))
             return;
@@ -548,11 +521,6 @@ struct boss_veknilashAI : public boss_twinemperorsAI
 
         DoMeleeAttackIfReady();
     }
-
-    void KilledUnit(Unit*) override
-    {
-        DoScriptText(SAY_VEKNILASH_SLAY, m_creature);
-    }
 };
 
 struct boss_veklorAI : public boss_twinemperorsAI
@@ -588,7 +556,6 @@ struct boss_veklorAI : public boss_twinemperorsAI
         m_creature->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, true);
         m_creature->SetBaseWeaponDamage(BASE_ATTACK, MINDAMAGE, 0);
         m_creature->SetBaseWeaponDamage(BASE_ATTACK, MAXDAMAGE, 0);
-        pullScriptedText = SIDialogueEntry{ irand(SAY_VEKLOR_AGGRO_4, SAY_VEKLOR_AGGRO_1), NPC_VEKLOR, 3000 };
     }
 
     void CastSpellOnBug(Creature *target)
@@ -602,8 +569,6 @@ struct boss_veklorAI : public boss_twinemperorsAI
         //Return since we have no target
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
-
-        SharedUpdate(diff);
 
         // reset arcane burst after teleport - we need to do this because
         // when VL jumps to VN's location there will be a warrior who will get only 2s to run away
@@ -681,49 +646,6 @@ struct boss_veklorAI : public boss_twinemperorsAI
             m_creature->GetMotionMaster()->MoveChase(who, VEKLOR_DIST, 0);
         }
     }
-
-    void KilledUnit(Unit*)
-    {
-        DoScriptText(SAY_VEKLOR_SLAY, m_creature);
-    }
-};
-
-struct mob_mastersEye : public ScriptedAI {
-    mob_mastersEye(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        sLog.outBasic("Masters Eye ctor!");
-        Reset();
-    }
-    
-    instance_temple_of_ahnqiraj* m_pInstance;
-    uint32 flightUpdate;
-
-    void Reset() override
-    {
-        instance_temple_of_ahnqiraj* tmpPTr = dynamic_cast<instance_temple_of_ahnqiraj*>(m_creature->GetInstanceData());
-        if (!tmpPTr) {
-            sLog.outError("boss_twinemperorsAI attempted to cast instance to type instance_temple_of_ahnqiraj, but failed.");
-            m_pInstance = nullptr;
-        }
-        else {
-            m_pInstance = (instance_temple_of_ahnqiraj*)m_creature->GetInstanceData();
-        }
-        flightUpdate = 0;
-    }
-
-    void UpdateAI(uint32 diff) override
-    {
-        if (m_creature->IsDespawned() || m_pInstance->TwinsDialogueStartedOrDone())
-            return;
-        if (flightUpdate < diff) {
-            m_creature->CastSpell(m_creature, 17131, true); // Start flying 
-            m_creature->GetMotionMaster()->MovePoint(0, -8952.7f, 1235.39f, -102.0f, MOVE_FLY_MODE, 0.0f, 4.896f);
-            flightUpdate = 5000;
-        }
-        else {
-            flightUpdate -= diff;
-        }
-    }
 };
 
 CreatureAI* GetAI_boss_veknilash(Creature* pCreature)
@@ -734,11 +656,6 @@ CreatureAI* GetAI_boss_veknilash(Creature* pCreature)
 CreatureAI* GetAI_boss_veklor(Creature* pCreature)
 {
     return new boss_veklorAI(pCreature);
-}
-
-CreatureAI* GetAI_masters_eye(Creature* pCreature)
-{
-    return new mob_mastersEye(pCreature);
 }
 
 void AddSC_boss_twinemperors()
@@ -753,10 +670,5 @@ void AddSC_boss_twinemperors()
     newscript = new Script;
     newscript->Name = "boss_veklor";
     newscript->GetAI = &GetAI_boss_veklor;
-    newscript->RegisterSelf();
-
-    newscript = new Script;
-    newscript->Name = "mob_masters_eye";
-    newscript->GetAI = &GetAI_masters_eye;
     newscript->RegisterSelf();
 }
