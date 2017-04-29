@@ -252,8 +252,8 @@ struct boss_twinemperorsAI : public ScriptedAI
         {
             float fDamPercent = ((float)damage) / ((float)m_creature->GetMaxHealth());
             uint32 uiTwinDamage = (uint32)(fDamPercent * ((float)pTwin->GetMaxHealth()));
-            uint32 uiTwinHealth = pTwin->GetHealth() - uiTwinDamage;
-            pTwin->SetHealth(uiTwinHealth > 0 ? uiTwinHealth : 0);
+            uint32 uiTwinHealth = pTwin->GetHealth() - std::min(uiTwinDamage, pTwin->GetHealth());
+            pTwin->SetHealth(std::max((uint32)0, uiTwinHealth));
             
             // Possibly needed to make sure the damage dealth through setHealth is counted 
             pTwin->CountDamageTaken(uiTwinDamage, true);
@@ -284,7 +284,6 @@ struct boss_twinemperorsAI : public ScriptedAI
     {
         if (m_pInstance) {
             if (m_pInstance->GetData(TYPE_TWINS) == IN_PROGRESS) {
-                sLog.outBasic("debugging - double Aggr() call");
                 return;
             }
             m_pInstance->SetData(TYPE_TWINS, IN_PROGRESS);
